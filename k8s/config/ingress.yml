@@ -1,0 +1,15 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ${SERVICE}
+  namespace: ${NAMESPACE}
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: ${STATIC_IP_NAME}
+spec:
+  tls:
+    - secretName: ${SERVICE}-secret-tls
+      hosts:
+        - ${DOMAIN}
+  backend:
+    serviceName: ${SERVICE}
+    servicePort: 3000

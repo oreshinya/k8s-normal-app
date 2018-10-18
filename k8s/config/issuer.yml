@@ -1,0 +1,19 @@
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Issuer
+metadata:
+  name: ${SERVICE}
+  namespace: ${NAMESPACE}
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: oreshinya@example.com
+    privateKeySecretRef:
+      name: ${SERVICE}-secret-letsencrypt
+    dns01:
+      providers:
+        - name: cloudflare
+          cloudflare:
+            email: oreshinya@example.com
+            apiKeySecretRef:
+              name: ${SERVICE}-secret-cloudflare
+              key: apiKey

@@ -1,0 +1,7 @@
+.git
+.gitignore
+Dockerfile
+Dockerfile.dev
+bin
+docker-compose.yml
+k8s

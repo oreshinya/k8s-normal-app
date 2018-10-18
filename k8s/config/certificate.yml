@@ -1,0 +1,19 @@
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: ${SERVICE}
+  namespace: ${NAMESPACE}
+spec:
+  secretName: ${SERVICE}-secret-tls
+  issuerRef:
+    name: ${SERVICE}
+  commonName: "*.${DOMAIN}"
+  dnsNames:
+    - ${DOMAIN}
+  acme:
+    config:
+      - dns01:
+          provider: cloudflare
+        domains:
+          - "*.${DOMAIN}"
+          - ${DOMAIN}

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+set -e
+
+## GCloud setup
+## If you use this script in ci, you need below commands.
+# echo $GOOGLE_CREDENTIALS > $HOME/credentials.json
+# gcloud auth activate-service-account --key-file $HOME/credentials.json
+gcloud auth configure-docker --quiet
+gcloud container clusters get-credentials oreshinya-cluster --region asia-northeast1 --project oreshinya

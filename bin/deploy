@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+set -e
+
+# Set env
+source ./k8s/env/$1.sh
+
+# Deploy
+envsubst < ./k8s/config/namespace.yml | kubectl apply -f -
+
+if [[ -f ./k8s/config/secret-env/$1.yml.enc ]]; then
+  sekret dec ./k8s/config/secret-env/$1.yml.enc | envsubst | kubectl apply -f -
+fi
+
+sekret dec ./k8s/config/secret-cloudflare.yml.enc | envsubst | kubectl apply -f -
+
+sekret dec ./k8s/config/secret-account.yml.enc | envsubst | kubectl apply -f -
+
+envsubst < ./k8s/config/configmap/$1.yml | kubectl apply -f -
+
+envsubst < ./k8s/config/issuer.yml | kubectl apply -f -
+
+envsubst < ./k8s/config/certificate.yml | kubectl apply -f -
+
+envsubst < ./k8s/config/console.yml | kubectl apply -f -
+
+for i in {1..361}; do # max 30 minutes
+  completed=$(kubectl get pods $SERVICE-console -n $NAMESPACE | grep -s -c "Running") || true
+  if [ "$completed" = "1" ]; then
+    kubectl exec $SERVICE-console -n $NAMESPACE -c console -- oreshinya migrate production
+    break
+  elif [ "$i" = "361" ]; then
+    echo "Migration is too long."
+    exit 1
+  else
+    sleep 5
+  fi
+done
+
+envsubst < ./k8s/config/deployment.yml | kubectl apply -f -
+
+envsubst < ./k8s/config/hpa.yml | kubectl apply -f -
+
+envsubst < ./k8s/config/service.yml | kubectl apply -f -
+
+envsubst < ./k8s/config/ingress.yml | kubectl apply -f -

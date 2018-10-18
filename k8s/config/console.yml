@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ${SERVICE}-console
+  namespace: ${NAMESPACE}
+spec:
+  restartPolicy: Always
+  volumes:
+    - name: gcp-sa-key
+      secret:
+        secretName: ${SERVICE}-secret-account
+    - name: ssl-certs
+      hostPath:
+        path: /etc/ssl/certs
+    - name: cloudsql
+      emptyDir:
+
+  containers:
+    - name: console
+      image: ${IMAGE_TAG}
+      imagePullPolicy: Always
+      command: [ "/bin/bash", "-c", "--" ]
+      args: [ "while true; do sleep 30; done;" ]
+      envFrom:
+        - configMapRef:
+            name: ${SERVICE}
+        - secretRef:
+            name: ${SERVICE}-secret-env
+            optional: true
+    - name: cloudsql-proxy
+      image: gcr.io/cloudsql-docker/gce-proxy:1.12
+      command: ["/cloud_sql_proxy", "--dir=/cloudsql",
+                "-instances=${MYSQL_INSTANCE}=tcp:3306",
+                "-credential_file=/var/secrets/google/credentials.json"]
+      volumeMounts:
+        - name: gcp-sa-key
+          mountPath: /var/secrets/google
+          readOnly: true
+        - name: ssl-certs
+          mountPath: /etc/ssl/certs
+        - name: cloudsql
+          mountPath: /cloudsql

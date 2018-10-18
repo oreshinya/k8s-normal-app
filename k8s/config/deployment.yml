@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${SERVICE}
+  namespace: ${NAMESPACE}
+spec:
+  replicas: ${REPLICA_SIZE}
+  selector:
+    matchLabels:
+      service: ${SERVICE}
+  template:
+    metadata:
+      labels:
+        service: ${SERVICE}
+    spec:
+      securityContext:
+        fsGroup: 61000
+        runAsGroup: 61000
+        runAsUser: 61000
+      volumes:
+        - name: assets
+          emptyDir: {}
+        - name: gcp-sa-key
+          secret:
+            secretName: ${SERVICE}-secret-account
+        - name: ssl-certs
+          hostPath:
+            path: /etc/ssl/certs
+        - name: cloudsql
+          emptyDir:
+      containers:
+        - name: app
+          image: ${IMAGE_TAG}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          volumeMounts:
+            - name: assets
+              mountPath: /usr/src/oreshinya/dist
+          resources:
+            requests:
+              memory: 100Mi
+              cpu: 50m
+            limits:
+              memory: 500Mi
+              cpu: 1000m
+          readinessProbe:
+            httpGet:
+              scheme: HTTP
+              path: /oreshinya_health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              scheme: HTTP
+              path: /oreshinya_health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          envFrom:
+            - configMapRef:
+                name: ${SERVICE}
+            - secretRef:
+                name: ${SERVICE}-secret-env
+                optional: true
+        - name: cloudsql-proxy
+          image: gcr.io/cloudsql-docker/gce-proxy:1.12
+          command: ["/cloud_sql_proxy", "--dir=/cloudsql",
+                    "-instances=${MYSQL_INSTANCE}=tcp:3306",
+                    "-credential_file=/var/secrets/google/credentials.json"]
+          volumeMounts:
+            - name: gcp-sa-key
+              mountPath: /var/secrets/google
+              readOnly: true
+            - name: ssl-certs
+              mountPath: /etc/ssl/certs
+            - name: cloudsql
+              mountPath: /cloudsql
+      initContainers:
+        - name: assets-compiler
+          image: ${IMAGE_TAG}
+          imagePullPolicy: Always
+          command: [ "oreshinya", "bundle", "production" ]
+          volumeMounts:
+            - name: assets
+              mountPath: /usr/src/oreshinya/dist
+          envFrom:
+            - configMapRef:
+                name: ${SERVICE}
+            - secretRef:
+                name: ${SERVICE}-secret-env
+                optional: true

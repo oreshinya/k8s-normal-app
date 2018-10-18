@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -e
+
+# Set env
+source ./k8s/env/common.sh
+
+# Build image
+docker build -t $IMAGE_TAG .
+
+# Push Docker image to gcr
+docker push $IMAGE_TAG
