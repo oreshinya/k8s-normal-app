@@ -24,6 +24,62 @@ envsubst < ./k8s/config/certificate.yml | kubectl apply -f -
 
 envsubst < ./k8s/config/console.yml | kubectl apply -f -
 
+
+
+next_pvc=$(kubectl get pvc $SERVICE-pvc-assets-$DEPLOY_REV -n $NAMESPACE --no-headers | wc -l)
+
+if [ $next_pvc = 1 ]; then
+  echo "PVC exists already ;)"
+else
+  envsubst < ./k8s/config/pvc-assets.yml | kubectl apply -f -
+fi
+
+pvcs=$(kubectl get pvc -n $NAMESPACE --no-headers | grep pvc-assets | wc -l)
+
+if [ $pvcs -gt 5 ]; then
+  delete_pvc=$( \
+    kubectl get pvc \
+    -n $NAMESPACE \
+    --no-headers \
+    --sort-by=.metadata.creationTimestamp \
+    -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}' \
+    | grep pvc-assets | head -n 1)
+  kubectl delete pvc $delete_pvc -n $NAMESPACE
+fi
+
+
+
+envsubst < ./k8s/config/job-assets.yml | kubectl apply -f -
+
+for i in {1..361}; do # max 30 minutes
+  if [[ "$(kubectl get job $SERVICE-job-assets-$DEPLOY_REV -n $NAMESPACE --output=jsonpath='{.status.succeeded}')" = "1" ]]; then
+    break
+  elif [[ "$(kubectl get job $SERVICE-job-assets-$DEPLOY_REV -n $NAMESPACE --output=jsonpath='{.status.failed}')" = "1" ]]; then
+    echo "Job assets is failed."
+    exit 1
+  elif [ "$i" = "361" ]; then
+    echo "Job assets is too long."
+    exit 1
+  else
+    sleep 5
+  fi
+done
+
+# Wait unmounting pv
+for i in {1..361}; do # max 30 minutes
+  if [[ "$(kubectl get pod -n $NAMESPACE | grep $SERVICE-job-assets-$DEPLOY_REV | grep -s -c Completed)" = "1" ]]; then
+    envsubst < ./k8s/config/job-assets.yml | kubectl delete -f -
+    break
+  elif [ "$i" = "361" ]; then
+    echo "Job assets is too long."
+    exit 1
+  else
+    sleep 5
+  fi
+done
+
+
+
 for i in {1..361}; do # max 30 minutes
   completed=$(kubectl get pods $SERVICE-console -n $NAMESPACE | grep -s -c "Running") || true
   if [ "$completed" = "1" ]; then
@@ -36,6 +92,8 @@ for i in {1..361}; do # max 30 minutes
     sleep 5
   fi
 done
+
+
 
 envsubst < ./k8s/config/deployment.yml | kubectl apply -f -
 

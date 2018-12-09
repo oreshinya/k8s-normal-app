@@ -19,7 +19,9 @@ spec:
         runAsUser: 61000
       volumes:
         - name: assets
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: ${SERVICE}-pvc-assets-${DEPLOY_REV}
+            readOnly: true
         - name: gcp-sa-key
           secret:
             secretName: ${SERVICE}-secret-account
@@ -37,6 +39,7 @@ spec:
           volumeMounts:
             - name: assets
               mountPath: /usr/src/oreshinya/dist
+              readOnly: true
           resources:
             requests:
               memory: 100Mi
@@ -77,17 +80,3 @@ spec:
               mountPath: /etc/ssl/certs
             - name: cloudsql
               mountPath: /cloudsql
-      initContainers:
-        - name: assets-compiler
-          image: ${IMAGE_TAG}
-          imagePullPolicy: Always
-          command: [ "oreshinya", "bundle", "production" ]
-          volumeMounts:
-            - name: assets
-              mountPath: /usr/src/oreshinya/dist
-          envFrom:
-            - configMapRef:
-                name: ${SERVICE}
-            - secretRef:
-                name: ${SERVICE}-secret-env
-                optional: true

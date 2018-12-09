@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ${SERVICE}-job-assets-${DEPLOY_REV}
+  namespace: ${NAMESPACE}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        service: ${SERVICE}
+    spec:
+      restartPolicy: Never
+      securityContext:
+        fsGroup: 61000
+        runAsGroup: 61000
+        runAsUser: 61000
+      volumes:
+        - name: assets
+          persistentVolumeClaim:
+            claimName: ${SERVICE}-pvc-assets-${DEPLOY_REV}
+      containers:
+        - name: assets-compiler
+          image: ${IMAGE_TAG}
+          command: [ "oreshinya", "bundle", "production" ]
+          volumeMounts:
+            - name: assets
+              mountPath: /usr/src/oreshinya/dist
+          envFrom:
+            - configMapRef:
+                name: ${SERVICE}
+            - secretRef:
+                name: ${SERVICE}-secret-env
+                optional: true
