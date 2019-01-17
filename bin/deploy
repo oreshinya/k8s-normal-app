@@ -28,26 +28,11 @@ envsubst < ./k8s/config/console.yml | kubectl apply -f -
 
 next_pvc=$(kubectl get pvc $SERVICE-pvc-assets-$DEPLOY_REV -n $NAMESPACE --no-headers | wc -l)
 
-if [ $next_pvc = 1 ]; then
+if [[ $next_pvc = 1 ]]; then
   echo "PVC exists already ;)"
 else
   envsubst < ./k8s/config/pvc-assets.yml | kubectl apply -f -
 fi
-
-pvcs=$(kubectl get pvc -n $NAMESPACE --no-headers | grep pvc-assets | wc -l)
-
-if [ $pvcs -gt 5 ]; then
-  delete_pvc=$( \
-    kubectl get pvc \
-    -n $NAMESPACE \
-    --no-headers \
-    --sort-by=.metadata.creationTimestamp \
-    -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}' \
-    | grep pvc-assets | head -n 1)
-  kubectl delete pvc $delete_pvc -n $NAMESPACE
-fi
-
-
 
 envsubst < ./k8s/config/job-assets.yml | kubectl apply -f -
 
@@ -102,3 +87,16 @@ envsubst < ./k8s/config/hpa.yml | kubectl apply -f -
 envsubst < ./k8s/config/service.yml | kubectl apply -f -
 
 envsubst < ./k8s/config/ingress.yml | kubectl apply -f -
+
+
+
+while [[ $(kubectl get pvc -n ${NAMESPACE} --no-headers | grep pvc-assets | wc -l) -gt 5 ]]; do
+  delete_pvc=$( \
+    kubectl get pvc \
+    -n $NAMESPACE \
+    --no-headers \
+    --sort-by=.metadata.creationTimestamp \
+    -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}' \
+    | grep pvc-assets | head -n 1)
+  kubectl delete pvc $delete_pvc -n $NAMESPACE
+done
