@@ -13,8 +13,6 @@ and, kubectl should be authenticated any cluster.
 
 ## Cluster dependencies
 - [cert-manager](https://github.com/jetstack/cert-manager)
-- StorageClass using regional persistent disk.
-  - You should run `kubectl apply -f ./storage-class-regional-pd.yml`
 
 ## Environments
 
